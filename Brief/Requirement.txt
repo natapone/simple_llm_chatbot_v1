@@ -1,0 +1,152 @@
+### **System Design for a LiteLLM + Langflow Chatbot (Pre-Sales Assistant)**  
+This document provides a **detailed design** and a **step-by-step implementation guide** for building a **lightweight chatbot** using **LiteLLM + Langflow**. The chatbot will act as a **pre-sales assistant** for a software development company, focusing on:  
+
+- **Understanding client needs** (requirement gathering)  
+- **Extracting key information** (use case, expectations, timeline)  
+- **Indirectly assessing budget**  
+- **Summarizing client requests**  
+- **Collecting contact details**  
+- **Storing lead information in Google Sheets**  
+
+---
+
+## **1. System Architecture**  
+The system will consist of the following components:
+
+### **1.1 Core Components**  
+| Component | Description |
+|-----------|------------|
+| **LiteLLM** | Manages the connection to OpenAI for **NLU and response generation**. |
+| **Langflow** | Provides a **graph-based conversation flow editor** to structure chatbot logic. |
+| **Google Sheets API** | Stores **client information and lead data** for follow-ups. |
+| **FastAPI Backend** | Handles requests from Langflow to interact with external APIs (Google Sheets, document generation). |
+
+---
+
+## **2. Conversation Flow Design**  
+
+### **2.1 Conversation Guidelines**  
+- The chatbot should be **structured yet flexible** to handle different user inputs.  
+- **Open-ended questions** will allow for natural conversations.  
+- **Clarification steps** ensure data accuracy.  
+- **Summarization and confirmation** before storing information.  
+
+### **2.2 Chatbot Flow Structure**  
+
+#### **1. Greeting & Context Setting**
+- **Bot:** “Hello! I’m here to understand your software development needs. How can I assist you today?”  
+- **User Response (examples):**  
+  - “I want a mobile app.”  
+  - “We need a CRM system.”  
+  - “I need a chatbot for customer service.”  
+
+#### **2. Requirement Gathering**  
+- **Bot:** “That sounds interesting! Could you describe the key features or functionalities you have in mind?”  
+- **User Response (examples):**  
+  - “A mobile app with payment integration.”  
+  - “A chatbot that can handle customer FAQs.”  
+  - “An inventory management system.”  
+
+#### **3. Use Case Understanding**  
+- **Bot:** “Got it! Is this solution for internal use or customer-facing?”  
+- **User Response (examples):**  
+  - “Internal for our employees.”  
+  - “For our customers to use.”  
+
+#### **4. Expectation and Timeline Inquiry**  
+- **Bot:** “What’s your expected timeline for this project? Are you looking for a prototype first or a full solution?”  
+- **User Response (examples):**  
+  - “We need a prototype in 2 months.”  
+  - “A full solution in 6 months.”  
+
+#### **5. Budget Inquiry (Indirect Approach)**  
+- **Bot:** “Would you like recommendations based on different pricing options, or do you already have a budget range in mind?”  
+- **User Response (examples):**  
+  - “We have a budget but would like to explore options.”  
+  - “We want to stay within $10,000-$20,000.”  
+
+#### **6. Summarization & Confirmation**  
+- **Bot:** “To summarize, you need a [solution] for [use case], with key features like [features]. You prefer [timeline] and are open to budget discussions. Is this correct?”  
+- **User:** “Yes, that sounds right.”  
+
+#### **7. Contact Collection**  
+- **Bot:** “Could you share your email or phone number so we can follow up with recommendations?”  
+- **User:** “[email@example.com]”  
+
+#### **8. Ticket Creation & Handoff**  
+- **Bot:** “Thanks for sharing your details! I’ve created a request for our pre-sales team. They’ll get in touch soon.”  
+- **[Store Data in Google Sheets]**  
+
+---
+
+## **3. Implementation Steps**  
+
+### **Step 1: Set Up LiteLLM for OpenAI Integration**  
+- Install **LiteLLM** to manage OpenAI API calls.  
+- Configure API keys securely.  
+- Use LiteLLM to **process user input, detect intent, and generate responses**.  
+
+### **Step 2: Set Up Langflow for Flow Management**  
+- Install **Langflow**, a no-code visual editor for LangChain.  
+- Design the conversation structure using Langflow's UI.  
+- Define **NLU intents, slot filling, and summarization steps** using LangChain.  
+
+### **Step 3: Integrate Langflow with LiteLLM**  
+- Create a **custom node in Langflow** to send user messages to LiteLLM.  
+- Use LiteLLM to process **natural language responses** from OpenAI.  
+- Return **structured responses** to Langflow for further conversation management.  
+
+### **Step 4: Store Conversation Data in Google Sheets**  
+- Use the **Google Sheets API** to create a lead-tracking sheet.  
+- Store relevant fields:  
+  - **Project Type**  
+  - **Use Case**  
+  - **Expected Features**  
+  - **Timeline**  
+  - **Budget Range** (if available)  
+  - **User Contact Info**  
+- Automatically append **new leads** from the chatbot.  
+
+### **Step 5: Create a Simple API Layer for External Services**  
+- Use **FastAPI** to create a lightweight backend.  
+- API should expose endpoints for:  
+  - **Document Generation (if needed in the future)**  
+  - **Lead Storage in Google Sheets**  
+- Connect **Langflow → FastAPI → Google Sheets API**.  
+
+---
+
+## **4. Deployment Strategy**  
+### **Option 1: Single-Server Deployment**  
+- Install **LiteLLM, Langflow, FastAPI, and Google Sheets API integration** on a **single VPS (DigitalOcean, AWS, etc.).**  
+- Recommended for **low to medium traffic**.  
+
+### **Option 2: Microservices Architecture (For Scalability)**  
+- **LiteLLM + Langflow:** Hosted separately.  
+- **FastAPI Backend:** Runs as a microservice handling Google Sheets API calls.  
+- **Frontend/Web Interface (if needed):** Embedded on the company website.  
+- **Database (Optional):** If lead storage requires structured querying.  
+
+---
+
+## **5. Future Enhancements**  
+- **WhatsApp & LINE Integration:** Extend FastAPI to handle messaging APIs.  
+- **Automated Appointment Scheduling:** Use **Google Calendar API** for pre-sales meetings.  
+- **CRM Integration:** Sync leads with **HubSpot, Salesforce, or custom CRM**.  
+- **Multilingual Support:** Extend LiteLLM with **translation layers**.  
+
+---
+
+## **6. Summary & Next Steps**  
+### **Phase 1 (MVP)**
+✅ Implement **LiteLLM for NLU**  
+✅ Build conversation flow in **Langflow**  
+✅ Connect chatbot to **Google Sheets** for lead tracking  
+✅ Deploy as a **FastAPI microservice**  
+
+### **Phase 2 (Enhancements)**
+🔹 Add **WhatsApp & LINE messaging**  
+🔹 Extend **document generation integration**  
+🔹 Implement **automated appointment scheduling**  
+
+Would you like a **detailed guide** on setting up **Langflow with LiteLLM** or integrating Google Sheets?

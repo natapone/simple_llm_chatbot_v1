@@ -1,0 +1,100 @@
+# Simple LLM Chatbot v1
+
+## Project Overview
+
+A lightweight chatbot system using LiteLLM and Langflow, designed to function as a pre-sales assistant for a software development company. The chatbot helps gather client requirements, extract key information, and store lead data in Google Sheets.
+
+## Technology Stack
+
+- **Backend**: FastAPI
+- **LLM Integration**: LiteLLM with GPT-4o-mini model
+- **Conversation Flow**: Langflow
+- **Data Storage**: Google Sheets API
+- **Authentication**: API Key-based
+- **Documentation**: Markdown
+- **Python Version**: 3.11+
+
+## Project Structure
+
+```
+simple_llm_chatbot_v1/
+├── .env.example           # Example environment variables
+├── .gitignore            # Git ignore file
+├── requirements.txt      # Python dependencies
+├── docs/                 # Documentation directory
+│   ├── setup/           # Setup and installation guides
+│   ├── api/             # API documentation
+│   └── architecture/    # System architecture docs
+├── app/                 # Main application directory
+│   ├── core/           # Core functionality
+│   │   ├── config.py   # Configuration management
+│   │   └── logger.py   # Logging setup
+│   ├── models/         # Data models
+│   ├── services/       # Business logic services
+│   ├── api/           # API routes
+│   └── utils/         # Utility functions
+├── tests/              # Test directory
+└── project_info.txt    # This file
+```
+
+## Key Features
+
+1. **Requirement Gathering**: Collects client project requirements through natural conversation
+2. **Information Extraction**: Extracts key details like project type, timeline, and budget
+3. **Lead Storage**: Stores lead information in Google Sheets for follow-up
+4. **Conversation Management**: Maintains context throughout the conversation
+5. **Summarization**: Provides a summary of the gathered information
+
+## Environment Variables
+
+- `OPENAI_API_KEY`: OpenAI API key
+- `LITELLM_MODEL`: LLM model to use (set to gpt-4o-mini)
+- `GOOGLE_SHEETS_CREDENTIALS_FILE`: Path to Google Sheets credentials file
+- `GOOGLE_SHEETS_SPREADSHEET_ID`: ID of the Google Sheet for lead storage
+- `API_HOST`: Host for the FastAPI server
+- `API_PORT`: Port for the FastAPI server
+
+## Changelog
+
+### [Unreleased]
+- Initial project setup
+- Documentation creation
+- Updated to Python 3.11+
+- Updated to latest OpenAI API version
+
+### [0.1.0] - YYYY-MM-DD
+- Created project structure
+- Added documentation:
+  - System architecture design
+  - Installation guide
+  - API reference
+- Created project_info.txt
+
+## Development Roadmap
+
+### Phase 1: Foundation Setup
+- [ ] Project structure setup
+- [ ] Environment configuration
+- [ ] Basic FastAPI server
+- [ ] LiteLLM integration with GPT-4o-mini
+- [ ] Logging system
+
+### Phase 2: Core Features
+- [ ] Conversation flow implementation in Langflow
+- [ ] Response generation system
+- [ ] Basic data validation
+
+### Phase 3: Integration & Storage
+- [ ] Google Sheets API integration
+- [ ] Lead data management
+- [ ] Error recovery mechanisms
+
+### Phase 4: Testing & Deployment
+- [ ] Unit and integration testing
+- [ ] Performance optimization
+- [ ] Documentation completion
+- [ ] Deployment preparation
+
+## Contact
+
+For questions or support, please contact the development team. 
