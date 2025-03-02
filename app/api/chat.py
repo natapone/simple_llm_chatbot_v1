@@ -3,12 +3,13 @@ API routes for chat functionality.
 """
 
 from typing import Dict, Any, Optional
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import UUID4
 
 from app.core.logger import get_logger
-from app.models.chat import ChatRequest, ChatResponse, SessionInfo, LeadList, Lead
+from app.models.chat import ChatRequest, ChatResponse, SessionInfo, LeadList, Lead, Message, MessageRole
 from app.services.conversation_service import conversation_service
 from app.services.sheets_service import sheets_service
 from app.api.dependencies import verify_api_key
@@ -134,7 +135,7 @@ async def get_leads(
     offset: int = Query(0, ge=0),
     x_api_key: str = Header(...),
     _: bool = Depends(verify_api_key)
-) -> Dict[str, Any]:
+) -> LeadList:
     """
     Get a list of leads collected by the chatbot.
     
@@ -152,8 +153,16 @@ async def get_leads(
         # Get leads from Google Sheets
         leads_data = await sheets_service.get_leads(limit=limit, offset=offset)
         
-        logger.debug(f"Retrieved {len(leads_data['leads'])} leads")
-        return leads_data
+        # Create a LeadList object
+        lead_list = LeadList(
+            total=leads_data["total"],
+            limit=leads_data["limit"],
+            offset=leads_data["offset"],
+            leads=leads_data["leads"]
+        )
+        
+        logger.debug(f"Retrieved {len(lead_list.leads)} leads")
+        return lead_list
     
     except Exception as e:
         logger.error(f"Error retrieving leads: {str(e)}")
@@ -233,4 +242,72 @@ async def update_lead_status(
     
     except Exception as e:
         logger.error(f"Error updating lead status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error updating lead status: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error updating lead status: {str(e)}")
+
+
+@router.post("/test/create-lead", response_model=Lead)
+async def create_test_lead(
+    x_api_key: str = Header(...),
+    _: bool = Depends(verify_api_key)
+) -> Lead:
+    """
+    Create a test lead for testing purposes.
+    Only available in testing mode.
+    
+    Args:
+        x_api_key: API key for authentication
+        
+    Returns:
+        Created lead information
+    """
+    try:
+        # Check if we're in testing mode
+        if os.getenv("TESTING", "False").lower() not in ("true", "1", "t"):
+            logger.warning("Attempted to create test lead in non-testing mode")
+            raise HTTPException(status_code=403, detail="This endpoint is only available in testing mode")
+        
+        logger.info("Creating test lead")
+        
+        # Create a test lead
+        import uuid
+        from datetime import datetime
+        
+        lead_id = f"test-lead-{uuid.uuid4()}"
+        
+        # Create a lead
+        lead = Lead(
+            id=lead_id,
+            client_name="Test User",
+            contact_info="test@example.com",
+            project_type="Website",
+            requirements_summary="A simple website with contact form",
+            timeline="2 months",
+            budget_range="$5,000-$10,000",
+            follow_up_status="pending",
+            created_at=datetime.utcnow(),
+            conversation_history=[
+                Message(
+                    role=MessageRole.USER,
+                    content="I need a website for my business",
+                    timestamp=datetime.utcnow()
+                ),
+                Message(
+                    role=MessageRole.ASSISTANT,
+                    content="I'd be happy to help with that. What kind of features do you need?",
+                    timestamp=datetime.utcnow()
+                )
+            ]
+        )
+        
+        # Store the lead
+        await sheets_service.store_lead(lead, "Test lead created for testing purposes")
+        
+        logger.info(f"Test lead created: {lead_id}")
+        return lead
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.error(f"Error creating test lead: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating test lead: {str(e)}") 

@@ -3,6 +3,7 @@ LiteLLM service for interacting with OpenAI's GPT models.
 """
 
 import json
+import os
 from typing import List, Dict, Any, Optional
 
 import litellm
@@ -27,7 +28,8 @@ class LLMService:
         self.model = settings.litellm.model
         self.temperature = settings.litellm.temperature
         self.max_tokens = settings.litellm.max_tokens
-        logger.info(f"Initialized LLM service with model: {self.model}")
+        self.testing = os.getenv("TESTING", "False").lower() in ("true", "1", "t")
+        logger.info(f"Initialized LLM service with model: {self.model}, testing mode: {self.testing}")
     
     async def generate_response(
         self, 
@@ -44,6 +46,11 @@ class LLMService:
         Returns:
             The generated response text
         """
+        # If in testing mode, return a mock response
+        if self.testing:
+            logger.info("Using mock LLM response in testing mode")
+            return "This is a mock response from the LLM service in testing mode."
+            
         # Convert Message objects to the format expected by LiteLLM
         formatted_messages = []
         
@@ -97,6 +104,11 @@ class LLMService:
         Returns:
             Dictionary of extracted entities
         """
+        # If in testing mode, return mock entities
+        if self.testing:
+            logger.info("Using mock entity extraction in testing mode")
+            return {entity_type: f"Mock {entity_type}" for entity_type in entity_types}
+            
         prompt = f"""
         Extract the following information from the text below:
         {', '.join(entity_types)}
@@ -157,6 +169,11 @@ class LLMService:
         Returns:
             A summary of the conversation
         """
+        # If in testing mode, return a mock summary
+        if self.testing:
+            logger.info("Using mock conversation summary in testing mode")
+            return "This is a mock summary of the conversation in testing mode."
+            
         # Combine messages into a single text
         conversation_text = "\n".join([
             f"{msg.role.value.capitalize()}: {msg.content}" 

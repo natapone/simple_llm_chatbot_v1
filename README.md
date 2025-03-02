@@ -13,6 +13,7 @@ This project implements a conversational chatbot that acts as a pre-sales assist
 - **Lead Storage**: Automatically stores lead information in Google Sheets
 - **Flexible Architecture**: Built with modular components for easy extension
 - **Modern LLM Integration**: Uses GPT-4o-mini via LiteLLM for intelligent responses
+- **Testing Mode**: Supports testing without external dependencies using mock services
 
 ## Technology Stack
 
@@ -61,11 +62,33 @@ This project implements a conversational chatbot that acts as a pre-sales assist
 
 For detailed installation instructions, see the [Installation Guide](docs/setup/installation_guide.md).
 
+## Testing
+
+The application includes a testing mode that uses mock implementations of external services:
+
+1. Enable testing mode in your `.env` file:
+   ```
+   TESTING=True
+   ```
+
+2. Run the application:
+   ```bash
+   python -m app.main
+   ```
+
+3. Run the test script:
+   ```bash
+   python -m tests.test_api
+   ```
+
+For detailed testing instructions, see the [Testing Guide](docs/setup/testing_guide.md).
+
 ## Documentation
 
 - [System Architecture](docs/architecture/system_design.md)
 - [API Reference](docs/api/api_reference.md)
 - [Installation Guide](docs/setup/installation_guide.md)
+- [Testing Guide](docs/setup/testing_guide.md)
 
 ## Development Roadmap
 

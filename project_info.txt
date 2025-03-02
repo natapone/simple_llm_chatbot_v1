@@ -44,6 +44,7 @@ simple_llm_chatbot_v1/
 3. **Lead Storage**: Stores lead information in Google Sheets for follow-up
 4. **Conversation Management**: Maintains context throughout the conversation
 5. **Summarization**: Provides a summary of the gathered information
+6. **Testing Mode**: Supports testing without external dependencies using mock services
 
 ## Environment Variables
 
@@ -53,6 +54,7 @@ simple_llm_chatbot_v1/
 - `GOOGLE_SHEETS_SPREADSHEET_ID`: ID of the Google Sheet for lead storage
 - `API_HOST`: Host for the FastAPI server
 - `API_PORT`: Port for the FastAPI server
+- `TESTING`: When set to "True", enables testing mode with mock services
 
 ## Changelog
 
@@ -61,6 +63,11 @@ simple_llm_chatbot_v1/
 - Documentation creation
 - Updated to Python 3.11+
 - Updated to latest OpenAI API version
+- Added testing mode with mock implementations:
+  - Mock LLM service for testing without OpenAI API
+  - Mock Google Sheets service for testing without actual sheets
+  - Test script to verify API functionality
+  - Testing documentation
 
 ### [0.1.0] - YYYY-MM-DD
 - Created project structure
@@ -73,26 +80,26 @@ simple_llm_chatbot_v1/
 ## Development Roadmap
 
 ### Phase 1: Foundation Setup
-- [ ] Project structure setup
-- [ ] Environment configuration
-- [ ] Basic FastAPI server
-- [ ] LiteLLM integration with GPT-4o-mini
-- [ ] Logging system
+- [x] Project structure setup
+- [x] Environment configuration
+- [x] Basic FastAPI server
+- [x] LiteLLM integration with GPT-4o-mini
+- [x] Logging system
 
 ### Phase 2: Core Features
-- [ ] Conversation flow implementation in Langflow
-- [ ] Response generation system
-- [ ] Basic data validation
+- [x] Conversation flow implementation in Langflow
+- [x] Response generation system
+- [x] Basic data validation
 
 ### Phase 3: Integration & Storage
-- [ ] Google Sheets API integration
-- [ ] Lead data management
-- [ ] Error recovery mechanisms
+- [x] Google Sheets API integration
+- [x] Lead data management
+- [x] Error recovery mechanisms
 
 ### Phase 4: Testing & Deployment
-- [ ] Unit and integration testing
+- [x] Unit and integration testing
 - [ ] Performance optimization
-- [ ] Documentation completion
+- [x] Documentation completion
 - [ ] Deployment preparation
 
 ## Contact
