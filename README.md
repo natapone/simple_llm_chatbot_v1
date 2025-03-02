@@ -64,21 +64,36 @@ For detailed installation instructions, see the [Installation Guide](docs/setup/
 
 ## Testing
 
-The application includes a testing mode that uses mock implementations of external services:
+The application includes a comprehensive test suite and a testing mode that uses mock implementations of external services:
 
 1. Enable testing mode in your `.env` file:
    ```
    TESTING=True
    ```
 
-2. Run the application:
+2. Run all tests using the test runner:
    ```bash
-   python -m app.main
+   python -m tests.run_all_tests
    ```
 
-3. Run the test script:
+3. Run specific test scripts:
    ```bash
+   # Basic API tests
    python -m tests.test_api
+   
+   # Comprehensive tests
+   python -m tests.test_comprehensive
+   
+   # Conversation scenario tests
+   python -m tests.test_conversation_scenarios
+   
+   # Performance tests
+   python -m tests.test_performance
+   ```
+
+4. Run tests with verbose output:
+   ```bash
+   python -m tests.run_all_tests --verbose
    ```
 
 For detailed testing instructions, see the [Testing Guide](docs/setup/testing_guide.md).
@@ -89,6 +104,7 @@ For detailed testing instructions, see the [Testing Guide](docs/setup/testing_gu
 - [API Reference](docs/api/api_reference.md)
 - [Installation Guide](docs/setup/installation_guide.md)
 - [Testing Guide](docs/setup/testing_guide.md)
+- [Test Scripts Reference](docs/setup/test_scripts_reference.md)
 
 ## Development Roadmap
 

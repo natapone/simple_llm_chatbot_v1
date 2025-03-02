@@ -145,3 +145,43 @@ This document outlines the system design for a lightweight chatbot using LiteLLM
 - CRM integration (HubSpot, Salesforce)
 - Multilingual support
 - Advanced analytics dashboard 
+
+## 8. Testing Framework
+
+### 8.1 Testing Architecture
+
+The application includes a comprehensive testing framework designed to validate all aspects of the system without relying on external services:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Test       │────▶│  Test       │────▶│  Mock       │
+│  Runner     │◀────│  Scripts    │◀────│  Services   │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                   │                   │
+       │                   │                   │
+       ▼                   ▼                   ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Server     │────▶│  API        │────▶│  Core       │
+│  Management │◀────│  Endpoints  │◀────│  Logic      │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+### 8.2 Mock Services
+
+- **Mock LLM Service**: Simulates responses from the LLM without calling OpenAI
+- **Mock Google Sheets Service**: Stores data in memory instead of in Google Sheets
+
+### 8.3 Test Scripts
+
+- **Basic API Tests**: Validates core API functionality
+- **Comprehensive Tests**: Tests all aspects of the application
+- **Conversation Scenario Tests**: Tests different conversation scenarios
+- **Performance Tests**: Tests API performance and reliability
+
+### 8.4 Test Runner
+
+The test runner script provides:
+- Automatic server startup and shutdown
+- Support for running specific tests
+- Detailed test results and summary
+- Proper error handling and reporting 

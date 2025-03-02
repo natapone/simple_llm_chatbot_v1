@@ -218,3 +218,49 @@ The API version is specified in the URL path:
 ```
 
 The current version is v1. When new versions are released, the previous versions will remain available for a deprecation period. 
+
+## Test Endpoints
+
+The following endpoints are only available when the application is running in testing mode (`TESTING=True` in the `.env` file).
+
+### `POST /api/test/create-lead`
+
+Create a test lead with the specified information.
+
+**Request Body:**
+
+```json
+{
+  "session_id": "test-session-123",
+  "project_type": "website",
+  "email": "test@example.com",
+  "name": "Test User",
+  "requirements": "A simple website with a blog",
+  "timeline": "2 months",
+  "budget": "$5,000-$8,000"
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "test-lead-abc123",
+  "session_id": "test-session-123",
+  "project_type": "website",
+  "email": "test@example.com",
+  "name": "Test User",
+  "requirements": "A simple website with a blog",
+  "timeline": "2 months",
+  "budget": "$5,000-$8,000",
+  "created_at": "2025-03-02T15:30:00Z"
+}
+```
+
+**Status Codes:**
+
+- `200 OK`: Lead created successfully
+- `400 Bad Request`: Invalid request format
+- `401 Unauthorized`: Invalid or missing API key
+- `403 Forbidden`: Testing mode not enabled
+- `500 Internal Server Error`: Server error 
