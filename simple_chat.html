@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Chat Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        #chat-container {
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow-y: scroll;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: white;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .bot-message {
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+        }
+        
+        #send-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        .status {
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Chat Interface</h1>
+    
+    <div id="chat-container"></div>
+    
+    <div class="input-container">
+        <input type="text" id="message-input" placeholder="Type your message here...">
+        <button id="send-button">Send</button>
+    </div>
+    
+    <div class="status" id="status">Connected to server</div>
+    <div class="error" id="error"></div>
+    
+    <script>
+        // Generate a random session ID
+        const sessionId = 'session-' + Math.random().toString(36).substring(2, 15);
+        
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const statusDiv = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
+        
+        // API configuration
+        const API_URL = 'http://localhost:8000/api/chat';
+        const API_KEY = 'test_api_key_123';
+        
+        // Add event listener for Enter key
+        messageInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Add event listener for Send button
+        sendButton.addEventListener('click', sendMessage);
+        
+        // Add welcome message when page loads
+        window.addEventListener('load', function() {
+            // Check if server is running
+            fetch('http://localhost:8000/health')
+                .then(response => {
+                    if (response.ok) {
+                        statusDiv.textContent = 'Connected to server';
+                        addMessage("Hello! I'm your pre-sales assistant. How can I help you with your software development needs today?", false);
+                    } else {
+                        statusDiv.textContent = 'Server is not responding properly';
+                    }
+                })
+                .catch(error => {
+                    statusDiv.textContent = 'Not connected to server';
+                    errorDiv.textContent = 'Cannot connect to server. Please make sure the server is running.';
+                    errorDiv.style.display = 'block';
+                });
+        });
+        
+        function addMessage(message, isUser) {
+            const messageElement = document.createElement('div');
+            messageElement.className = isUser ? 'message user-message' : 'message bot-message';
+            messageElement.textContent = message;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, true);
+            messageInput.value = '';
+            
+            try {
+                statusDiv.textContent = 'Sending message...';
+                
+                // Send message to API
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_KEY
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                statusDiv.textContent = 'Message received';
+                
+                // Add bot response to chat
+                addMessage(data.response, false);
+                
+                // Log conversation state (optional)
+                console.log('Conversation state:', data.conversation_state);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                statusDiv.textContent = 'Error sending message';
+                showError('Sorry, there was an error processing your request. Please try again.');
+                addMessage('Sorry, there was an error connecting to the server. Please check if the server is running and try again.', false);
+            }
+        }
+    </script>
+</body>
+</html> 

@@ -2,6 +2,7 @@
 Conversation service for managing chat interactions.
 """
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
@@ -18,8 +19,8 @@ from app.models.chat import (
 from app.services.llm_service import llm_service
 from app.services.sheets_service import sheets_service
 
-# Get logger
-logger = get_logger("conversation_service")
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # In-memory storage for active conversations
 # In a production environment, this would be replaced with a database
@@ -48,6 +49,9 @@ class ConversationService:
         """
         # Get or create conversation data
         conversation = self._get_or_create_conversation(session_id)
+        
+        # Store session_id in metadata
+        conversation.metadata["session_id"] = session_id
         
         # Add user message to history
         user_message = Message(
@@ -82,7 +86,7 @@ class ConversationService:
         active_conversations[session_id] = conversation
         
         # Check if we need to store a lead (when reaching handoff state)
-        if next_state == ConversationState.HANDOFF:
+        if next_state == ConversationState.HANDOFF and conversation.metadata.get("confirmed", False):
             await self._store_lead(session_id)
         
         # Return the response and current state
@@ -143,13 +147,13 @@ class ConversationService:
         elif current_state == ConversationState.REQUIREMENT_GATHERING:
             return await self._handle_requirement_gathering(conversation, message)
         
-        elif current_state == ConversationState.USE_CASE_UNDERSTANDING:
+        elif current_state == ConversationState.USE_CASE:
             return await self._handle_use_case(conversation, message)
         
-        elif current_state == ConversationState.TIMELINE_EXPECTATIONS:
+        elif current_state == ConversationState.TIMELINE:
             return await self._handle_timeline(conversation, message)
         
-        elif current_state == ConversationState.BUDGET_INQUIRY:
+        elif current_state == ConversationState.BUDGET:
             return await self._handle_budget(conversation, message)
         
         elif current_state == ConversationState.SUMMARIZATION:
@@ -157,6 +161,9 @@ class ConversationService:
         
         elif current_state == ConversationState.CONTACT_COLLECTION:
             return await self._handle_contact_collection(conversation, message)
+        
+        elif current_state == ConversationState.CONFIRMATION:
+            return await self._handle_confirmation(conversation, message)
         
         elif current_state == ConversationState.HANDOFF:
             return await self._handle_handoff(conversation, message)
@@ -200,14 +207,12 @@ class ConversationService:
                     ["requirements"]
                 )
                 if entities.get("requirements"):
-                    # Handle both string and list formats
-                    if isinstance(entities["requirements"], str):
-                        reqs = [req.strip() for req in entities["requirements"].split(",")]
-                        conversation.collected_info.requirements = reqs
-                    elif isinstance(entities["requirements"], list):
+                    if isinstance(entities["requirements"], list):
                         conversation.collected_info.requirements = entities["requirements"]
+                    else:
+                        conversation.collected_info.requirements = [entities["requirements"]]
             
-            elif state == ConversationState.USE_CASE_UNDERSTANDING:
+            elif state == ConversationState.USE_CASE:
                 # Extract use case
                 entities = await llm_service.extract_entities(
                     message, 
@@ -216,7 +221,7 @@ class ConversationService:
                 if entities.get("use_case"):
                     conversation.collected_info.use_case = entities["use_case"]
             
-            elif state == ConversationState.TIMELINE_EXPECTATIONS:
+            elif state == ConversationState.TIMELINE:
                 # Extract timeline
                 entities = await llm_service.extract_entities(
                     message, 
@@ -225,7 +230,7 @@ class ConversationService:
                 if entities.get("timeline"):
                     conversation.collected_info.timeline = entities["timeline"]
             
-            elif state == ConversationState.BUDGET_INQUIRY:
+            elif state == ConversationState.BUDGET:
                 # Extract budget range
                 entities = await llm_service.extract_entities(
                     message, 
@@ -235,7 +240,7 @@ class ConversationService:
                     conversation.collected_info.budget_range = entities["budget_range"]
             
             elif state == ConversationState.CONTACT_COLLECTION:
-                # Extract contact information
+                # Extract contact information and client name
                 entities = await llm_service.extract_entities(
                     message, 
                     ["contact_info", "client_name"]
@@ -244,23 +249,41 @@ class ConversationService:
                     conversation.collected_info.contact_info = entities["contact_info"]
                 if entities.get("client_name"):
                     conversation.collected_info.client_name = entities["client_name"]
+            
+            elif state == ConversationState.CONFIRMATION:
+                # Extract confirmation status
+                entities = await llm_service.extract_entities(
+                    message, 
+                    ["confirmation", "corrections"]
+                )
+                if entities.get("confirmation"):
+                    conversation.metadata["confirmation"] = entities["confirmation"]
+                if entities.get("corrections"):
+                    conversation.metadata["corrections"] = entities["corrections"]
+                    # Update collected info based on corrections
+                    if isinstance(entities["corrections"], dict):
+                        for key, value in entities["corrections"].items():
+                            if hasattr(conversation.collected_info, key):
+                                setattr(conversation.collected_info, key, value)
         
         except Exception as e:
             logger.error(f"Error extracting entities: {str(e)}")
+            # Continue with conversation even if entity extraction fails
     
     async def _handle_greeting(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the greeting state."""
-        system_prompt = """
-        You are a pre-sales assistant for a software development company.
-        Your goal is to understand the client's needs and gather information about their project.
-        Be friendly, professional, and helpful.
+        """Handle the greeting state of the conversation."""
+        logger.debug("Handling greeting state")
         
-        If the user has already mentioned a project type or specific requirements, acknowledge them and ask for more details.
-        Otherwise, ask an open-ended question about their software development needs.
+        system_prompt = """
+        You are a pre-sales assistant for a software development company. 
+        Keep your response concise and friendly (under 100 words).
+        Ask about the client's software development needs in a simple, direct way.
+        Don't provide a list of services - just ask what they need help with.
+        Use plain text only - no markdown, no asterisks, no special formatting.
         """
         
         response = await llm_service.generate_response(
@@ -268,24 +291,22 @@ class ConversationService:
             system_prompt
         )
         
-        # Transition to requirement gathering if project type is mentioned
-        next_state = ConversationState.REQUIREMENT_GATHERING if conversation.collected_info.project_type else ConversationState.GREETING
-        
-        return response, next_state
+        return response, ConversationState.REQUIREMENT_GATHERING
     
     async def _handle_requirement_gathering(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the requirement gathering state."""
-        system_prompt = """
-        You are a pre-sales assistant for a software development company.
-        Your goal is to gather specific requirements for the client's project.
+        """Handle the requirement gathering state of the conversation."""
+        logger.debug("Handling requirement gathering state")
         
-        Ask about key features or functionalities they need.
-        If they've already provided some requirements, acknowledge them and ask for any additional features.
-        When you have a good understanding of their requirements, ask about the use case.
+        system_prompt = """
+        You are gathering requirements for a software project.
+        Ask 1-2 specific questions about key features they need.
+        Keep your response under 80 words.
+        Be friendly but direct.
+        Use plain text only - no markdown, no asterisks, no special formatting.
         """
         
         response = await llm_service.generate_response(
@@ -293,24 +314,21 @@ class ConversationService:
             system_prompt
         )
         
-        # Transition to use case understanding if requirements are collected
-        next_state = ConversationState.USE_CASE_UNDERSTANDING if conversation.collected_info.requirements else ConversationState.REQUIREMENT_GATHERING
-        
-        return response, next_state
+        return response, ConversationState.USE_CASE
     
     async def _handle_use_case(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the use case understanding state."""
-        system_prompt = """
-        You are a pre-sales assistant for a software development company.
-        Your goal is to understand the use case for the client's project.
+        """Handle the use case understanding state of the conversation."""
+        logger.debug("Handling use case understanding state")
         
-        Ask if the solution is for internal use or customer-facing.
-        Ask about the target users and their needs.
-        When you have a good understanding of the use case, ask about their timeline expectations.
+        system_prompt = """
+        Ask about the intended use case for this software (internal/customer-facing).
+        Keep your response under 70 words.
+        Ask only 1 clear question about their use case.
+        Use plain text only - no markdown, no asterisks, no special formatting.
         """
         
         response = await llm_service.generate_response(
@@ -318,24 +336,21 @@ class ConversationService:
             system_prompt
         )
         
-        # Transition to timeline expectations if use case is collected
-        next_state = ConversationState.TIMELINE_EXPECTATIONS if conversation.collected_info.use_case else ConversationState.USE_CASE_UNDERSTANDING
-        
-        return response, next_state
+        return response, ConversationState.TIMELINE
     
     async def _handle_timeline(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the timeline expectations state."""
-        system_prompt = """
-        You are a pre-sales assistant for a software development company.
-        Your goal is to understand the client's timeline expectations.
+        """Handle the timeline expectations state of the conversation."""
+        logger.debug("Handling timeline expectations state")
         
-        Ask about their expected timeline for the project.
-        Ask if they're looking for a prototype first or a full solution.
-        When you have a good understanding of their timeline, transition to discussing budget.
+        system_prompt = """
+        Ask about their project timeline in a direct way.
+        Keep your response under 60 words.
+        Just ask when they need the project completed.
+        Use plain text only - no markdown, no asterisks, no special formatting.
         """
         
         response = await llm_service.generate_response(
@@ -343,26 +358,22 @@ class ConversationService:
             system_prompt
         )
         
-        # Transition to budget inquiry if timeline is collected
-        next_state = ConversationState.BUDGET_INQUIRY if conversation.collected_info.timeline else ConversationState.TIMELINE_EXPECTATIONS
-        
-        return response, next_state
+        return response, ConversationState.BUDGET
     
     async def _handle_budget(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the budget inquiry state."""
+        """Handle the budget inquiry state of the conversation."""
+        logger.debug("Handling budget inquiry state")
+        
         system_prompt = """
-        You are a pre-sales assistant for a software development company.
-        Your goal is to tactfully gather budget information.
-        
-        Ask indirectly about their budget range, such as:
-        "Would you like recommendations based on different pricing options, or do you already have a budget range in mind?"
-        
-        Be respectful if they're hesitant to share budget information.
-        After discussing budget, summarize what you've learned about their project.
+        Ask about budget range tactfully.
+        Keep your response under 70 words.
+        Be direct but polite.
+        Don't list specific price ranges - just ask what their budget is.
+        Use plain text only - no markdown, no asterisks, no special formatting.
         """
         
         response = await llm_service.generate_response(
@@ -370,94 +381,124 @@ class ConversationService:
             system_prompt
         )
         
-        # Always transition to summarization after budget discussion
-        next_state = ConversationState.SUMMARIZATION
-        
-        return response, next_state
+        # After budget inquiry, move to summarization
+        return response, ConversationState.SUMMARIZATION
     
     async def _handle_summarization(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the summarization state."""
-        # Generate a summary of the collected information
-        collected = conversation.collected_info
-        summary_parts = []
+        """Handle the summarization state of the conversation."""
+        logger.debug("Handling summarization state")
         
-        if collected.project_type:
-            summary_parts.append(f"a {collected.project_type}")
+        # Generate a summary of the conversation
+        summary = await llm_service.summarize_conversation(conversation.history)
         
-        if collected.use_case:
-            summary_parts.append(f"for {collected.use_case}")
+        # Store the summary in the conversation metadata
+        conversation.metadata["summary"] = summary
         
-        requirements_text = ""
-        if collected.requirements:
-            requirements_text = ", ".join(collected.requirements)
-            summary_parts.append(f"with features like {requirements_text}")
-        
-        timeline_text = ""
-        if collected.timeline:
-            timeline_text = f"You prefer {collected.timeline}"
-        
-        budget_text = ""
-        if collected.budget_range:
-            budget_text = f"with a budget range of {collected.budget_range}"
-        elif timeline_text:
-            budget_text = "and are open to budget discussions"
+        # Check if we have contact information
+        if conversation.collected_info.contact_info:
+            # If we already have contact info, go to confirmation
+            system_prompt = """
+            Provide a clear summary of what you've understood about their project needs.
+            Format as a bulleted list with hyphens.
+            Include all key details: project type, requirements, timeline, budget, etc.
+            End by asking them to confirm if the information is correct.
+            Explicitly ask them to type "confirm" if everything is correct.
+            If something is wrong, ask them to tell you what needs to be corrected.
+            Keep your response under 150 words.
+            Use plain text only - no markdown, no asterisks, no special formatting.
+            """
+            
+            response = await llm_service.generate_response(
+                conversation.history,
+                system_prompt
+            )
+            
+            return response, ConversationState.CONFIRMATION
         else:
-            budget_text = "You are open to budget discussions"
-        
-        summary = f"To summarize, you need {' '.join(summary_parts)}. {timeline_text} {budget_text}. Is this correct?"
-        
-        # Check if the user confirms the summary
-        if "yes" in message.lower() or "correct" in message.lower() or "right" in message.lower():
-            response = "Great! Could you share your email or phone number so we can follow up with recommendations?"
-            next_state = ConversationState.CONTACT_COLLECTION
-        else:
-            response = summary
-            next_state = ConversationState.SUMMARIZATION
-        
-        return response, next_state
+            # If we don't have contact info, go to contact collection
+            system_prompt = """
+            Provide a clear summary of what you've understood about their project needs.
+            Format as a bulleted list with hyphens.
+            Include all key details: project type, requirements, timeline, budget, etc.
+            End by asking for their contact information (email or phone).
+            Keep your response under 150 words.
+            Use plain text only - no markdown, no asterisks, no special formatting.
+            """
+            
+            response = await llm_service.generate_response(
+                conversation.history,
+                system_prompt
+            )
+            
+            return response, ConversationState.CONTACT_COLLECTION
     
     async def _handle_contact_collection(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the contact collection state."""
-        system_prompt = """
-        You are a pre-sales assistant for a software development company.
-        Your goal is to collect contact information from the client.
+        """Handle the contact collection state of the conversation."""
+        logger.debug("Handling contact collection state")
         
-        If they've provided contact information, thank them and let them know you'll create a request for the pre-sales team.
-        If they haven't provided contact information, politely ask for their email or phone number.
-        Explain that this is for the pre-sales team to follow up with recommendations.
-        """
+        # Extract contact information from the message
+        await self._extract_entities(conversation, message, ConversationState.CONTACT_COLLECTION)
         
-        response = await llm_service.generate_response(
-            conversation.history,
-            system_prompt
-        )
-        
-        # Transition to handoff if contact info is collected
-        next_state = ConversationState.HANDOFF if conversation.collected_info.contact_info else ConversationState.CONTACT_COLLECTION
-        
-        return response, next_state
+        # Check if we have contact information
+        if conversation.collected_info.contact_info:
+            # Move to confirmation state
+            system_prompt = """
+            Thank the client for providing their contact information.
+            Provide a clear summary of what you've understood about their project needs.
+            Format as a bulleted list with hyphens.
+            Include all key details: project type, requirements, timeline, budget, contact info, etc.
+            End by asking them to confirm if the information is correct.
+            Explicitly ask them to type "confirm" if everything is correct.
+            If something is wrong, ask them to tell you what needs to be corrected.
+            Keep your response under 150 words.
+            Use plain text only - no markdown, no asterisks, no special formatting.
+            """
+            
+            response = await llm_service.generate_response(
+                conversation.history,
+                system_prompt
+            )
+            
+            return response, ConversationState.CONFIRMATION
+        else:
+            # Ask again for contact information
+            system_prompt = """
+            Politely ask again for their contact information (email or phone).
+            Explain that this is needed to follow up on their project requirements.
+            Keep your response under 50 words.
+            Use plain text only - no markdown, no asterisks, no special formatting.
+            """
+            
+            response = await llm_service.generate_response(
+                conversation.history,
+                system_prompt
+            )
+            
+            return response, ConversationState.CONTACT_COLLECTION
     
     async def _handle_handoff(
         self, 
         conversation: ConversationData, 
         message: str
     ) -> Tuple[str, ConversationState]:
-        """Handle the handoff state."""
-        system_prompt = """
-        You are a pre-sales assistant for a software development company.
-        Your goal is to conclude the conversation and set expectations for next steps.
+        """Handle the handoff state of the conversation."""
+        logger.debug("Handling handoff state")
         
-        Thank the client for their time and information.
-        Let them know that the pre-sales team will review their request and get in touch soon.
-        Provide a friendly closing message.
+        # We've already saved the lead information in the confirmation handler
+        # Just stay in the handoff state
+        system_prompt = """
+        Thank the client for their time.
+        Let them know that a team member will contact them soon to discuss their project further.
+        Keep your response under 60 words.
+        Use plain text only - no markdown, no asterisks, no special formatting.
         """
         
         response = await llm_service.generate_response(
@@ -465,10 +506,92 @@ class ConversationService:
             system_prompt
         )
         
-        # Stay in handoff state
-        next_state = ConversationState.HANDOFF
+        return response, ConversationState.HANDOFF
+    
+    async def _handle_confirmation(
+        self, 
+        conversation: ConversationData, 
+        message: str
+    ) -> Tuple[str, ConversationState]:
+        """Handle the confirmation state of the conversation."""
+        logger.debug("Handling confirmation state")
         
-        return response, next_state
+        # Extract confirmation from the message
+        await self._extract_entities(conversation, message, ConversationState.CONFIRMATION)
+        
+        # Get confirmation status from metadata
+        confirmation = conversation.metadata.get("confirmation", "").lower()
+        
+        if confirmation in ["yes", "confirm", "correct", "right", "looks good", "good"]:
+            # User confirmed the information
+            logger.info("User confirmed information, proceeding to handoff")
+            
+            # Mark as confirmed in metadata
+            conversation.metadata["confirmed"] = True
+            
+            # Save the lead information to Google Sheets
+            try:
+                await self._save_lead_to_sheets(conversation)
+                logger.info("Successfully saved lead to Google Sheets")
+            except Exception as e:
+                logger.error(f"Failed to save lead to Google Sheets: {str(e)}")
+            
+            system_prompt = """
+            Thank the client for confirming their information.
+            Let them know that a team member will contact them soon to discuss their project further.
+            Keep your response under 60 words.
+            Use plain text only - no markdown, no asterisks, no special formatting.
+            """
+            
+            response = await llm_service.generate_response(
+                conversation.history,
+                system_prompt
+            )
+            
+            return response, ConversationState.HANDOFF
+        
+        elif confirmation in ["no", "incorrect", "wrong", "not right", "needs correction"]:
+            # User indicated information is incorrect
+            logger.info("User indicated information is incorrect, asking for corrections")
+            
+            system_prompt = """
+            Apologize for the misunderstanding.
+            Ask the client specifically what information needs to be corrected.
+            Mention that they can provide corrections for any of these categories:
+            - Project type/requirements
+            - Use case
+            - Timeline
+            - Budget
+            - Contact information
+            Keep your response under 80 words.
+            Use plain text only - no markdown, no asterisks, no special formatting.
+            """
+            
+            response = await llm_service.generate_response(
+                conversation.history,
+                system_prompt
+            )
+            
+            # Stay in the confirmation state to handle corrections
+            return response, ConversationState.CONFIRMATION
+        
+        else:
+            # Unclear response, ask for explicit confirmation
+            logger.info("Unclear confirmation response, asking for explicit confirmation")
+            
+            system_prompt = """
+            Politely ask the client to explicitly confirm if the information is correct.
+            Ask them to type "confirm" if everything is correct, or to tell you what needs to be corrected.
+            Keep your response under 60 words.
+            Use plain text only - no markdown, no asterisks, no special formatting.
+            """
+            
+            response = await llm_service.generate_response(
+                conversation.history,
+                system_prompt
+            )
+            
+            return response, ConversationState.CONFIRMATION
     
     async def _store_lead(self, session_id: str):
         """
@@ -552,6 +675,32 @@ class ConversationService:
         
         logger.warning(f"Session not found for deletion: {session_id}")
         return False
+
+    async def _save_lead_to_sheets(self, conversation: ConversationData) -> None:
+        """Save lead information to Google Sheets."""
+        try:
+            from app.services.sheets_service import sheets_service
+            
+            # Prepare the lead data
+            lead_data = {
+                "client_name": conversation.collected_info.client_name or "Unknown",
+                "contact_info": conversation.collected_info.contact_info or "Unknown",
+                "project_type": conversation.collected_info.project_type or "Unknown",
+                "requirements": ", ".join(conversation.collected_info.requirements or ["Unknown"]),
+                "use_case": conversation.collected_info.use_case or "Unknown",
+                "timeline": conversation.collected_info.timeline or "Unknown",
+                "budget_range": conversation.collected_info.budget_range or "Unknown",
+                "summary": conversation.metadata.get("summary", "No summary available"),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            # Save to Google Sheets
+            await sheets_service.append_lead(lead_data)
+            logger.info(f"Successfully saved lead to Google Sheets: {lead_data['client_name']} - {lead_data['contact_info']}")
+            
+        except Exception as e:
+            logger.error(f"Error saving lead to Google Sheets: {str(e)}")
+            raise
 
 
 # Create a singleton instance

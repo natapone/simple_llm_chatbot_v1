@@ -60,6 +60,21 @@ class LLMService:
                 "role": "system",
                 "content": system_prompt
             })
+        else:
+            # Default system prompt for concise responses
+            formatted_messages.append({
+                "role": "system",
+                "content": """You are a pre-sales assistant chatbot. Keep your responses concise, clear, and to the point.
+                - Use short paragraphs (2-3 sentences max)
+                - Use simple text formatting only (no markdown, no asterisks for emphasis)
+                - Separate list items with simple hyphens followed by a space
+                - Use plain text only
+                - Use line breaks for readability
+                - Avoid unnecessary details
+                - Keep responses under 150 words
+                - Be friendly but direct
+                - Never use asterisks or other markdown symbols for formatting"""
+            })
         
         # Add conversation history
         for msg in messages:
@@ -107,8 +122,74 @@ class LLMService:
         # If in testing mode, return mock entities
         if self.testing:
             logger.info("Using mock entity extraction in testing mode")
-            return {entity_type: f"Mock {entity_type}" for entity_type in entity_types}
+            mock_entities = {}
+            for entity_type in entity_types:
+                if entity_type == "confirmation":
+                    # Check for confirmation keywords in the text
+                    confirmation_keywords = ["yes", "confirm", "correct", "right", "ok", "okay", "sure", "agreed", "confirmed"]
+                    rejection_keywords = ["no", "incorrect", "wrong", "not right", "needs correction"]
+                    
+                    text_lower = text.lower()
+                    for keyword in confirmation_keywords:
+                        if keyword.lower() in text_lower:
+                            mock_entities[entity_type] = "yes"
+                            break
+                    else:
+                        for keyword in rejection_keywords:
+                            if keyword.lower() in text_lower:
+                                mock_entities[entity_type] = "no"
+                                break
+                        else:
+                            mock_entities[entity_type] = ""
+                else:
+                    mock_entities[entity_type] = f"Mock {entity_type}"
+            return mock_entities
             
+        # Special handling for confirmation entity
+        if "confirmation" in entity_types and len(entity_types) == 1:
+            confirmation_prompt = f"""
+            Determine if the user is confirming or rejecting the information.
+            
+            User message: "{text}"
+            
+            If the user is confirming (using words like yes, confirm, correct, right, ok, okay, sure, agreed, etc.),
+            respond with just the word: yes
+            
+            If the user is rejecting or pointing out errors (using words like no, incorrect, wrong, not right, etc.),
+            respond with just the word: no
+            
+            If you can't clearly determine if they're confirming or rejecting, respond with an empty string.
+            
+            Your response should be ONLY one of these three options: "yes", "no", or ""
+            """
+            
+            try:
+                logger.debug("Extracting confirmation status")
+                
+                # Call LiteLLM to extract confirmation status
+                response = completion(
+                    model=self.model,
+                    messages=[{"role": "user", "content": confirmation_prompt}],
+                    temperature=0.1,
+                    max_tokens=10
+                )
+                
+                # Extract the response text
+                response_text = response.choices[0].message.content.strip().lower()
+                
+                # Process the response
+                if response_text == "yes":
+                    return {"confirmation": "yes"}
+                elif response_text == "no":
+                    return {"confirmation": "no"}
+                else:
+                    return {"confirmation": ""}
+                
+            except Exception as e:
+                logger.error(f"Error extracting confirmation status: {str(e)}")
+                return {"confirmation": ""}
+        
+        # Standard entity extraction for other entity types
         prompt = f"""
         Extract the following information from the text below:
         {', '.join(entity_types)}
@@ -126,7 +207,7 @@ class LLMService:
             response = completion(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,  # Lower temperature for more deterministic output
+                temperature=0.1,
                 max_tokens=self.max_tokens
             )
             
@@ -135,7 +216,7 @@ class LLMService:
             
             # Parse the JSON response
             try:
-                # Find JSON in the response (in case the model adds explanatory text)
+                # Find JSON in the response
                 start_idx = response_text.find('{')
                 end_idx = response_text.rfind('}') + 1
                 
@@ -151,10 +232,10 @@ class LLMService:
             except json.JSONDecodeError:
                 logger.warning(f"Failed to parse JSON from response: {response_text}")
                 return {}
-        
+            
         except Exception as e:
             logger.error(f"Error extracting entities: {str(e)}")
-            raise
+            return {}
     
     async def summarize_conversation(
         self, 
@@ -187,6 +268,8 @@ class LLMService:
         2. Use case and context
         3. Timeline expectations
         4. Budget information (if available)
+        
+        Keep the summary concise (under 100 words) and well-structured.
         
         Conversation:
         {conversation_text}

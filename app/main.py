@@ -4,8 +4,11 @@ Main application module for the chatbot API.
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
+import os
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -29,6 +32,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Include routers
 app.include_router(chat_router)
@@ -54,6 +60,22 @@ async def root():
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page():
+    """Serve the chat interface."""
+    logger.info("Serving chat interface")
+    chat_html_path = Path("app/static/chat.html")
+    
+    if not chat_html_path.exists():
+        logger.error(f"Chat HTML file not found at {chat_html_path}")
+        return "<h1>Error: Chat interface file not found</h1>"
+    
+    with open(chat_html_path, "r") as f:
+        content = f.read()
+    
+    return content
 
 
 if __name__ == "__main__":

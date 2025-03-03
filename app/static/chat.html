@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Sales Assistant Chatbot</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        #chat-container {
+            height: 500px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow-y: scroll;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            line-height: 1.4;
+            position: relative;
+            white-space: pre-line;
+            word-wrap: break-word;
+        }
+        
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .bot-message {
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .message-time {
+            font-size: 0.7em;
+            color: #888;
+            margin-top: 5px;
+            text-align: right;
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        #message-input:focus {
+            border-color: #007bff;
+        }
+        
+        #send-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        #send-button:hover {
+            background-color: #0069d9;
+        }
+        
+        .typing-indicator {
+            display: none;
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 18px;
+            margin-bottom: 15px;
+            width: fit-content;
+            color: #666;
+        }
+        
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #888;
+            margin-right: 3px;
+            animation: wave 1.3s linear infinite;
+        }
+        
+        .dot:nth-child(2) {
+            animation-delay: -1.1s;
+        }
+        
+        .dot:nth-child(3) {
+            animation-delay: -0.9s;
+        }
+        
+        @keyframes wave {
+            0%, 60%, 100% {
+                transform: initial;
+            }
+            30% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        .status-bar {
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pre-Sales Assistant Chatbot</h1>
+    
+    <div id="chat-container"></div>
+    
+    <div class="typing-indicator" id="typing-indicator">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+    </div>
+    
+    <div class="input-container">
+        <input type="text" id="message-input" placeholder="Type your message here...">
+        <button id="send-button">Send</button>
+    </div>
+    
+    <div class="status-bar" id="status-bar">
+        Session ID: <span id="session-id"></span>
+    </div>
+    
+    <div class="error-message" id="error-message"></div>
+    
+    <script>
+        // Generate a random session ID
+        const sessionId = 'session-' + Math.random().toString(36).substring(2, 15);
+        document.getElementById('session-id').textContent = sessionId;
+        
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const errorMessage = document.getElementById('error-message');
+        
+        // API configuration
+        const API_URL = '/api/chat';  // Using relative URL instead of hardcoded localhost
+        const API_KEY = 'test_api_key_123';
+        
+        // Add event listener for Enter key
+        messageInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Add event listener for Send button
+        sendButton.addEventListener('click', sendMessage);
+        
+        // Add welcome message when page loads
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                addMessage("Hello! I'm your pre-sales assistant. How can I help you with your software development needs today?", false);
+            }, 500);
+        });
+        
+        function formatTime() {
+            const now = new Date();
+            return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function addMessage(message, isUser) {
+            const messageElement = document.createElement('div');
+            messageElement.className = isUser ? 'message user-message' : 'message bot-message';
+            
+            // Use innerHTML instead of textContent to preserve line breaks
+            // Escape HTML to prevent XSS attacks
+            const escapedMessage = message
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+            
+            // Replace newlines with <br> tags
+            const formattedMessage = escapedMessage.replace(/\n/g, '<br>');
+            
+            messageElement.innerHTML = formattedMessage;
+            
+            const timeElement = document.createElement('div');
+            timeElement.className = 'message-time';
+            timeElement.textContent = formatTime();
+            
+            messageElement.appendChild(timeElement);
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function showTypingIndicator() {
+            typingIndicator.style.display = 'block';
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function hideTypingIndicator() {
+            typingIndicator.style.display = 'none';
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, true);
+            messageInput.value = '';
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            try {
+                // Send message to API
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_KEY
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId
+                    })
+                });
+                
+                // Hide typing indicator
+                hideTypingIndicator();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Process the response to handle escaped newlines
+                // First replace escaped newlines (\n) with actual newlines
+                // Then replace Unicode newlines (\u2028) with actual newlines
+                const processedResponse = data.response
+                    .replace(/\\n/g, '\n')
+                    .replace(/\u2028/g, '\n');
+                
+                // Add bot response to chat
+                addMessage(processedResponse, false);
+                
+                // Log conversation state (optional)
+                console.log('Conversation state:', data.conversation_state);
+                
+            } catch (error) {
+                // Hide typing indicator
+                hideTypingIndicator();
+                
+                console.error('Error:', error);
+                showError('Sorry, there was an error processing your request. Please try again.');
+                addMessage('Sorry, there was an error connecting to the server. Please check if the server is running and try again.', false);
+            }
+        }
+    </script>
+</body>
+</html> 

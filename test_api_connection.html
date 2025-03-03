@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-height: 100px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    <p>This page tests the connection to the chatbot API.</p>
+    
+    <button id="test-health">Test Health Endpoint</button>
+    <button id="test-chat">Test Chat Endpoint</button>
+    
+    <div id="result">
+        <p>Results will appear here...</p>
+    </div>
+    
+    <script>
+        const resultDiv = document.getElementById('result');
+        const API_KEY = 'test_api_key_123';
+        
+        document.getElementById('test-health').addEventListener('click', async () => {
+            resultDiv.innerHTML = '<p>Testing health endpoint...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <p class="success">Health endpoint test successful!</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p class="error">Health endpoint test failed!</p>
+                    <p>Error: ${error.message}</p>
+                    <p>This could be due to:</p>
+                    <ul>
+                        <li>Server not running</li>
+                        <li>CORS issues</li>
+                        <li>Network connectivity problems</li>
+                    </ul>
+                `;
+                console.error('Error:', error);
+            }
+        });
+        
+        document.getElementById('test-chat').addEventListener('click', async () => {
+            resultDiv.innerHTML = '<p>Testing chat endpoint...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_KEY
+                    },
+                    body: JSON.stringify({
+                        message: 'Hello',
+                        session_id: 'test-session-' + Date.now()
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <p class="success">Chat endpoint test successful!</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p class="error">Chat endpoint test failed!</p>
+                    <p>Error: ${error.message}</p>
+                    <p>This could be due to:</p>
+                    <ul>
+                        <li>Server not running</li>
+                        <li>CORS issues</li>
+                        <li>API key issues</li>
+                        <li>Network connectivity problems</li>
+                    </ul>
+                `;
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -10,14 +10,15 @@ from pydantic import BaseModel, Field, EmailStr
 
 
 class ConversationState(str, Enum):
-    """Enum representing the current state of the conversation."""
+    """Enum representing the state of a conversation."""
     GREETING = "greeting"
     REQUIREMENT_GATHERING = "requirement_gathering"
-    USE_CASE_UNDERSTANDING = "use_case_understanding"
-    TIMELINE_EXPECTATIONS = "timeline_expectations"
-    BUDGET_INQUIRY = "budget_inquiry"
+    USE_CASE = "use_case"
+    TIMELINE = "timeline"
+    BUDGET = "budget"
     SUMMARIZATION = "summarization"
     CONTACT_COLLECTION = "contact_collection"
+    CONFIRMATION = "confirmation"
     HANDOFF = "handoff"
 
 
