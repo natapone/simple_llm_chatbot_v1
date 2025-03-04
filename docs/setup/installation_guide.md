@@ -72,6 +72,11 @@ You can customize the location by changing the `CSV_DATA_DIRECTORY` and `CSV_LEA
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+Once the server is running, you can:
+- Access the chat interface at: `http://localhost:8000/chat`
+- Access the API documentation at: `http://localhost:8000/docs`
+- Check the server health at: `http://localhost:8000/health`
+
 ## Step 7: Set Up Langflow (Optional)
 
 If you want to modify the conversation flow:

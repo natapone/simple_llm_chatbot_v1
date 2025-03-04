@@ -87,7 +87,7 @@ simple_llm_chatbot/
 
 2. Access the API documentation at `http://localhost:8000/docs`
 
-3. For the chat interface, open `chat.html` in your browser.
+3. Access the chat interface at `http://localhost:8000/chat`
 
 ## Testing
 
