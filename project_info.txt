@@ -24,7 +24,9 @@ simple_llm_chatbot_v1/
 ├── docs/                 # Documentation directory
 │   ├── setup/           # Setup and installation guides
 │   ├── api/             # API documentation
-│   └── architecture/    # System architecture docs
+│   ├── architecture/    # System architecture docs
+│   └── project/         # Project documentation
+│       └── development_journey.md  # Detailed development history
 ├── app/                 # Main application directory
 │   ├── core/           # Core functionality
 │   │   ├── config.py   # Configuration management
@@ -37,6 +39,7 @@ simple_llm_chatbot_v1/
 │   │   └── test/      # Test HTML files
 │   │       ├── simple_chat.html      # Simplified chat interface for testing
 │   │       └── test_api_connection.html  # API connection test page
+│   │
 │   └── utils/         # Utility functions
 ├── tests/              # Test directory
 │   ├── __init__.py                # Package initialization
@@ -80,6 +83,11 @@ simple_llm_chatbot_v1/
 ## Changelog
 
 ### 2024-03-04
+- Added comprehensive project documentation:
+  - Created development journey document detailing the project's evolution
+  - Added new docs/project directory for project-level documentation
+  - Updated README and project_info to reference the new documentation
+
 - Cleaned up project structure:
   - Removed duplicate test files from root directory
   - Moved HTML test files to app/static/test directory

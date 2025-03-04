@@ -130,6 +130,7 @@ For more detailed information, please refer to the documentation in the `docs` d
 - [Testing Guide](docs/setup/testing_guide.md)
 - [System Design](docs/architecture/system_design.md)
 - [Conversation Flow](docs/architecture/conversation_flow.md)
+- [Development Journey](docs/project/development_journey.md) - A detailed history of the project's development process
 
 ## License
 
