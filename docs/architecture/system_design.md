@@ -9,7 +9,7 @@ This document outlines the system design for a lightweight chatbot using LiteLLM
 - Indirectly assessing budget
 - Summarizing client requests
 - Collecting contact details
-- Storing lead information in Google Sheets
+- Storing lead information in a local CSV file
 
 ## 2. System Architecture
 
@@ -19,8 +19,8 @@ This document outlines the system design for a lightweight chatbot using LiteLLM
 |-----------|------------|
 | **LiteLLM** | Manages the connection to OpenAI for NLU and response generation using GPT-4o-mini model |
 | **Langflow** | Provides a graph-based conversation flow editor to structure chatbot logic |
-| **Google Sheets API** | Stores client information and lead data for follow-ups |
-| **FastAPI Backend** | Handles requests from Langflow to interact with external APIs (Google Sheets) |
+| **CSV Storage** | Stores client information and lead data for follow-ups |
+| **FastAPI Backend** | Handles requests from Langflow to interact with the CSV storage |
 
 ### 2.2 Component Interactions
 
@@ -32,8 +32,8 @@ This document outlines the system design for a lightweight chatbot using LiteLLM
                           │                    │
                           ▼                    ▼
                     ┌─────────────┐     ┌─────────────┐
-                    │Google Sheets│     │   LiteLLM   │
-                    │     API     │     │  (GPT-4o-mini) │
+                    │ CSV Storage │     │   LiteLLM   │
+                    │             │     │  (GPT-4o-mini) │
                     └─────────────┘     └─────────────┘
 ```
 
@@ -69,7 +69,7 @@ This document outlines the system design for a lightweight chatbot using LiteLLM
   - Logging
   - CORS
 
-### 3.4 Google Sheets Integration
+### 3.4 CSV Storage
 
 - **Data Structure**:
   - Timestamp
@@ -83,19 +83,23 @@ This document outlines the system design for a lightweight chatbot using LiteLLM
 
 ## 4. Security Considerations
 
-### 4.1 API Security
+### 4.1 API Authentication
 
-- API keys stored securely in environment variables
-- Rate limiting to prevent abuse
-- Input validation to prevent injection attacks
-- CORS configuration to restrict origins
+- All API endpoints are protected with API key authentication
+- API keys are validated against a secure store
+- Rate limiting is implemented to prevent abuse
 
 ### 4.2 Data Protection
 
-- Encryption for sensitive data
-- Secure credential storage
-- Data anonymization where appropriate
-- Regular security audits
+- Sensitive data is encrypted at rest
+- PII is handled according to data protection regulations
+- Data retention policies are implemented
+
+### 4.3 Dependency Security
+
+- Regular security audits of dependencies
+- Vulnerability scanning in CI/CD pipeline
+- Secure coding practices
 
 ## 5. Implementation Phases
 
@@ -112,7 +116,6 @@ This document outlines the system design for a lightweight chatbot using LiteLLM
 - Basic data validation
 
 ### Phase 3: Integration & Storage (Week 5-6)
-- Google Sheets API integration
 - Lead data management
 - Error recovery mechanisms
 
@@ -169,7 +172,7 @@ The application includes a comprehensive testing framework designed to validate 
 ### 8.2 Mock Services
 
 - **Mock LLM Service**: Simulates responses from the LLM without calling OpenAI
-- **Mock Google Sheets Service**: Stores data in memory instead of in Google Sheets
+- **Mock CSV Service**: Stores data in memory instead of in the CSV file
 
 ### 8.3 Test Scripts
 

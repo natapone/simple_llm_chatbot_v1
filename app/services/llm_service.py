@@ -4,6 +4,7 @@ LiteLLM service for interacting with OpenAI's GPT models.
 
 import json
 import os
+import logging
 from typing import List, Dict, Any, Optional
 
 import litellm
@@ -15,6 +16,36 @@ from app.models.chat import Message, MessageRole
 
 # Configure litellm
 litellm.api_key = settings.openai_api_key
+# Explicitly set verbose to False to disable debug logs
+litellm.verbose = False
+# Disable JSON logs to prevent additional debug output
+litellm.json_logs = False
+# Set litellm log level to WARNING to show only important logs
+os.environ["LITELLM_LOG"] = "WARNING"
+# Configure litellm logger directly
+litellm_logger = logging.getLogger("litellm")
+litellm_logger.setLevel(logging.WARNING)
+
+# Simple logger function that only logs requests
+def minimal_logger(model_call_dict):
+    # Log errors
+    if model_call_dict.get("error"):
+        logger.error(f"LiteLLM error: {model_call_dict.get('error')}")
+        return
+    
+    # Log only the request
+    if model_call_dict.get("messages"):
+        messages = model_call_dict.get("messages", [])
+        
+        # Extract user message (the last one with role 'user')
+        user_message = None
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                user_message = msg.get("content")
+                break
+        
+        if user_message:
+            logger.info(f"Request to LLM: '{user_message[:100]}{'...' if len(user_message) > 100 else ''}'")
 
 # Get logger
 logger = get_logger("llm_service")
@@ -84,19 +115,27 @@ class LLMService:
             })
         
         try:
-            logger.debug(f"Sending request to LLM with {len(formatted_messages)} messages")
+            # Log the request being sent to the LLM
+            last_user_message = "No user message found"
+            for msg in reversed(messages):
+                if msg.role == MessageRole.USER:
+                    last_user_message = msg.content
+                    break
+            
+            logger.info(f"Sending request to LLM: '{last_user_message[:100]}{'...' if len(last_user_message) > 100 else ''}'")
             
             # Call LiteLLM to generate a response
             response = completion(
                 model=self.model,
                 messages=formatted_messages,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
+                verbose=False,
+                logger_fn=minimal_logger
             )
             
             # Extract the response text
             response_text = response.choices[0].message.content
-            logger.debug(f"Received response from LLM: {response_text[:50]}...")
             
             return response_text
         
@@ -164,14 +203,16 @@ class LLMService:
             """
             
             try:
-                logger.debug("Extracting confirmation status")
+                logger.info("Extracting confirmation status")
                 
                 # Call LiteLLM to extract confirmation status
                 response = completion(
                     model=self.model,
                     messages=[{"role": "user", "content": confirmation_prompt}],
                     temperature=0.1,
-                    max_tokens=10
+                    max_tokens=10,
+                    verbose=False,
+                    logger_fn=minimal_logger
                 )
                 
                 # Extract the response text
@@ -201,14 +242,16 @@ class LLMService:
         """
         
         try:
-            logger.debug(f"Extracting entities: {entity_types}")
+            logger.info(f"Extracting entities: {entity_types}")
             
             # Call LiteLLM to extract entities
             response = completion(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
+                verbose=False,
+                logger_fn=minimal_logger
             )
             
             # Extract the response text
@@ -223,7 +266,7 @@ class LLMService:
                 if start_idx >= 0 and end_idx > start_idx:
                     json_str = response_text[start_idx:end_idx]
                     entities = json.loads(json_str)
-                    logger.debug(f"Extracted entities: {entities}")
+                    logger.info("Entities extracted successfully")
                     return entities
                 else:
                     logger.warning(f"Could not find JSON in response: {response_text}")
@@ -276,19 +319,21 @@ class LLMService:
         """
         
         try:
-            logger.debug("Generating conversation summary")
+            logger.info("Generating conversation summary")
             
             # Call LiteLLM to generate a summary
             response = completion(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
+                verbose=False,
+                logger_fn=minimal_logger
             )
             
             # Extract the response text
             summary = response.choices[0].message.content
-            logger.debug(f"Generated summary: {summary[:50]}...")
+            logger.info("Summary generated successfully")
             
             return summary
         

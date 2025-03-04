@@ -14,9 +14,18 @@ from datetime import datetime
 
 # Test scripts to run
 TEST_SCRIPTS = [
+    # API Tests
     "test_api.py",
+    "test_chatbot.py",
+    
+    # Functional Tests
     "test_comprehensive.py",
     "test_conversation_scenarios.py",
+    
+    # Storage Tests
+    "test_csv_storage.py",
+    
+    # Performance Tests
     "test_performance.py"
 ]
 

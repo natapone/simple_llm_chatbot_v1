@@ -31,9 +31,11 @@ The test runner handles:
 - Properly shutting down the server after tests complete
 - Providing a summary of test results
 
-## Test Scripts
+## Test Scripts by Category
 
-### Basic API Tests (`test_api.py`)
+### API Tests
+
+#### Basic API Tests (`tests/test_api.py`)
 
 This script tests the basic API functionality of the application:
 
@@ -47,7 +49,22 @@ Example:
 python -m tests.test_api
 ```
 
-### Comprehensive Tests (`test_comprehensive.py`)
+#### Simple Chatbot API Test (`tests/test_chatbot.py`)
+
+This script provides a simple test of the chatbot API:
+
+- **API Connection**: Tests the connection to the API
+- **Chat Endpoint**: Sends a test message and verifies the response
+- **Session Management**: Verifies that a session ID is created and maintained
+
+Example:
+```bash
+python -m tests.test_chatbot
+```
+
+### Functional Tests
+
+#### Comprehensive Tests (`tests/test_comprehensive.py`)
 
 This script provides comprehensive testing of all aspects of the application:
 
@@ -62,7 +79,7 @@ Example:
 python -m tests.test_comprehensive
 ```
 
-### Conversation Scenario Tests (`test_conversation_scenarios.py`)
+#### Conversation Scenario Tests (`tests/test_conversation_scenarios.py`)
 
 This script tests different conversation scenarios to ensure the chatbot can handle various client requests:
 
@@ -78,7 +95,24 @@ Example:
 python -m tests.test_conversation_scenarios
 ```
 
-### Performance Tests (`test_performance.py`)
+### Storage Tests
+
+#### CSV Storage Tests (`tests/test_csv_storage.py`)
+
+This script tests the CSV storage functionality:
+
+- **Lead Storage**: Tests storing a lead in the CSV file
+- **Lead Retrieval**: Tests retrieving a lead from the CSV file
+- **Data Integrity**: Verifies that the stored data matches the original data
+
+Example:
+```bash
+python -m tests.test_csv_storage
+```
+
+### Performance Tests
+
+#### API Performance Tests (`tests/test_performance.py`)
 
 This script tests the performance and reliability of the API:
 

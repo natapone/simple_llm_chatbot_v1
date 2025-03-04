@@ -16,8 +16,8 @@ from app.models.chat import (
     CollectedInfo,
     Lead
 )
-from app.services.llm_service import llm_service
-from app.services.sheets_service import sheets_service
+from app.services.llm_service import llm_service, LLMService
+from app.services.csv_service import CSVService
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -47,57 +47,68 @@ class ConversationService:
         Returns:
             Dictionary with response and conversation state
         """
-        # Get or create conversation data
-        conversation = self._get_or_create_conversation(session_id)
-        
-        # Store session_id in metadata
-        conversation.metadata["session_id"] = session_id
-        
-        # Add user message to history
-        user_message = Message(
-            role=MessageRole.USER,
-            content=message
-        )
-        conversation.history.append(user_message)
-        
-        # Update user info if provided
-        if user_info:
-            if user_info.get("name"):
-                conversation.collected_info.client_name = user_info.get("name")
-            if user_info.get("email"):
-                conversation.collected_info.contact_info = user_info.get("email")
-            elif user_info.get("phone"):
-                conversation.collected_info.contact_info = user_info.get("phone")
-        
-        # Process the message based on the current state
-        response, next_state = await self._process_state(conversation, message)
-        
-        # Update the conversation state
-        conversation.current_state = next_state
-        
-        # Add assistant response to history
-        assistant_message = Message(
-            role=MessageRole.ASSISTANT,
-            content=response
-        )
-        conversation.history.append(assistant_message)
-        
-        # Save the updated conversation
-        active_conversations[session_id] = conversation
-        
-        # Check if we need to store a lead (when reaching handoff state)
-        if next_state == ConversationState.HANDOFF and conversation.metadata.get("confirmed", False):
-            await self._store_lead(session_id)
-        
-        # Return the response and current state
-        return {
-            "response": response,
-            "session_id": session_id,
-            "conversation_state": {
-                "current_step": next_state.value,
-                "collected_info": conversation.collected_info.dict(exclude_none=True)
+        try:
+            logger.info(f"Processing message for session {session_id}")
+            
+            # Get or create conversation data
+            conversation = self._get_or_create_conversation(session_id)
+            
+            # Store session_id in metadata
+            conversation.metadata["session_id"] = session_id
+            
+            # Add user message to history
+            user_message = Message(
+                role=MessageRole.USER,
+                content=message
+            )
+            conversation.history.append(user_message)
+            
+            # Update user info if provided
+            if user_info:
+                if user_info.get("name"):
+                    conversation.collected_info.client_name = user_info.get("name")
+                if user_info.get("email"):
+                    conversation.collected_info.contact_info = user_info.get("email")
+                elif user_info.get("phone"):
+                    conversation.collected_info.contact_info = user_info.get("phone")
+            
+            # Process the message based on the current state
+            response, next_state = await self._process_state(conversation, message)
+            
+            # Update the conversation state
+            conversation.current_state = next_state
+            
+            # Add assistant response to history
+            assistant_message = Message(
+                role=MessageRole.ASSISTANT,
+                content=response
+            )
+            conversation.history.append(assistant_message)
+            
+            # Store the updated conversation
+            self._store_conversation(session_id, conversation)
+            
+            # Check if we need to store a lead (when reaching handoff state)
+            if next_state == ConversationState.HANDOFF and conversation.metadata.get("confirmed", False):
+                await self._store_lead(session_id)
+            
+            # Return the response and current state
+            return {
+                "response": response,
+                "session_id": session_id,
+                "conversation_state": {
+                    "current_step": next_state.value,
+                    "collected_info": conversation.collected_info.dict(exclude_none=True)
+                }
             }
-        }
+            
+        except Exception as e:
+            logger.error(f"Error processing message: {str(e)}")
+            return {
+                "response": "I'm sorry, but I encountered an error processing your message. Please try again.",
+                "session_id": session_id,
+                "conversation_state": {"state": "error"}
+            }
     
     def _get_or_create_conversation(self, session_id: str) -> ConversationData:
         """
@@ -240,17 +251,31 @@ class ConversationService:
                     conversation.collected_info.budget_range = entities["budget_range"]
             
             elif state == ConversationState.CONTACT_COLLECTION:
-                # Extract contact information and client name
+                # Extract contact information
                 entities = await llm_service.extract_entities(
                     message, 
                     ["contact_info", "client_name"]
                 )
                 if entities.get("contact_info"):
                     conversation.collected_info.contact_info = entities["contact_info"]
+                    logger.info(f"Collected contact info: {entities['contact_info']}")
+                
                 if entities.get("client_name"):
                     conversation.collected_info.client_name = entities["client_name"]
+                    logger.info(f"Collected client name: {entities['client_name']}")
             
             elif state == ConversationState.CONFIRMATION:
+                # Extract confirmation
+                entities = await llm_service.extract_entities(
+                    message, 
+                    ["confirmation"]
+                )
+                if entities.get("confirmation"):
+                    confirmation = entities["confirmation"].lower()
+                    conversation.metadata["confirmation"] = confirmation
+                    logger.info(f"Collected confirmation: {confirmation}")
+            
+            elif state == ConversationState.HANDOFF:
                 # Extract confirmation status
                 entities = await llm_service.extract_entities(
                     message, 
@@ -529,12 +554,7 @@ class ConversationService:
             # Mark as confirmed in metadata
             conversation.metadata["confirmed"] = True
             
-            # Save the lead information to Google Sheets
-            try:
-                await self._save_lead_to_sheets(conversation)
-                logger.info("Successfully saved lead to Google Sheets")
-            except Exception as e:
-                logger.error(f"Failed to save lead to Google Sheets: {str(e)}")
+            # Note: Lead will be saved when transitioning to HANDOFF state
             
             system_prompt = """
             Thank the client for confirming their information.
@@ -595,42 +615,21 @@ class ConversationService:
     
     async def _store_lead(self, session_id: str):
         """
-        Store lead information in Google Sheets.
+        Store the lead information.
         
         Args:
-            session_id: Unique identifier for the conversation session
+            session_id: The ID of the session
         """
         try:
             # Get the conversation data
-            conversation = active_conversations.get(session_id)
-            if not conversation:
-                logger.warning(f"Conversation not found for lead storage: {session_id}")
-                return
+            conversation = self._get_or_create_conversation(session_id)
             
-            # Generate a summary of the conversation
-            summary = await llm_service.summarize_conversation(conversation.history)
+            # Save the lead to the CSV file
+            await self._save_lead_to_csv(conversation)
             
-            # Create a lead object
-            collected = conversation.collected_info
-            lead = Lead(
-                id=f"lead_{uuid.uuid4().hex[:8]}",
-                client_name=collected.client_name,
-                contact_info=collected.contact_info,
-                project_type=collected.project_type,
-                requirements_summary=", ".join(collected.requirements) if collected.requirements else None,
-                timeline=collected.timeline,
-                budget_range=collected.budget_range,
-                follow_up_status="pending",
-                created_at=datetime.utcnow()
-            )
-            
-            # Store the lead in Google Sheets
-            await sheets_service.store_lead(lead, summary)
-            
-            logger.info(f"Lead stored successfully: {lead.id}")
-        
         except Exception as e:
             logger.error(f"Error storing lead: {str(e)}")
+            # Continue with the conversation even if storing the lead fails
     
     async def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -676,31 +675,65 @@ class ConversationService:
         logger.warning(f"Session not found for deletion: {session_id}")
         return False
 
-    async def _save_lead_to_sheets(self, conversation: ConversationData) -> None:
-        """Save lead information to Google Sheets."""
+    async def _save_lead_to_csv(self, conversation: ConversationData) -> None:
+        """Save the lead information to the CSV file.
+        
+        Args:
+            conversation: The conversation data
+        """
         try:
-            from app.services.sheets_service import sheets_service
+            # Create a summary of the conversation
+            messages = conversation.history
+            llm_service = LLMService()
+            summary = await llm_service.summarize_conversation(messages)
             
-            # Prepare the lead data
-            lead_data = {
-                "client_name": conversation.collected_info.client_name or "Unknown",
-                "contact_info": conversation.collected_info.contact_info or "Unknown",
-                "project_type": conversation.collected_info.project_type or "Unknown",
-                "requirements": ", ".join(conversation.collected_info.requirements or ["Unknown"]),
-                "use_case": conversation.collected_info.use_case or "Unknown",
-                "timeline": conversation.collected_info.timeline or "Unknown",
-                "budget_range": conversation.collected_info.budget_range or "Unknown",
-                "summary": conversation.metadata.get("summary", "No summary available"),
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            # Process requirements to ensure it's a list of strings
+            requirements = conversation.collected_info.requirements
+            if requirements is None:
+                requirements_str = ""
+            elif isinstance(requirements, list):
+                # Filter out any non-string items and convert them to strings
+                requirements_str = ", ".join(str(req) for req in requirements if req is not None)
+            elif isinstance(requirements, dict):
+                # If it's a dictionary, convert to a string representation
+                requirements_str = ", ".join(f"{k}: {v}" for k, v in requirements.items())
+            else:
+                # For any other type, convert to string
+                requirements_str = str(requirements)
             
-            # Save to Google Sheets
-            await sheets_service.append_lead(lead_data)
-            logger.info(f"Successfully saved lead to Google Sheets: {lead_data['client_name']} - {lead_data['contact_info']}")
+            # Create a lead object
+            lead = Lead(
+                id=str(uuid.uuid4()),
+                client_name=conversation.collected_info.client_name,
+                contact_info=conversation.collected_info.contact_info,
+                project_type=conversation.collected_info.project_type,
+                requirements_summary=requirements_str,
+                timeline=conversation.collected_info.timeline,
+                budget_range=conversation.collected_info.budget_range,
+                follow_up_status="pending",
+                created_at=datetime.utcnow()
+            )
+            
+            # Store the lead in the CSV file
+            csv_service = CSVService()
+            await csv_service.store_lead(lead, summary)
+            
+            logger.info(f"Saved lead to CSV file: {lead.id}")
             
         except Exception as e:
-            logger.error(f"Error saving lead to Google Sheets: {str(e)}")
-            raise
+            logger.error(f"Error saving lead to CSV file: {str(e)}")
+            # Continue with the conversation even if saving the lead fails
+
+    def _store_conversation(self, session_id: str, conversation: ConversationData):
+        """
+        Store the conversation data in memory.
+        
+        Args:
+            session_id: The ID of the session
+            conversation: The conversation data to store
+        """
+        active_conversations[session_id] = conversation
+        logger.debug(f"Stored conversation for session: {session_id}")
 
 
 # Create a singleton instance

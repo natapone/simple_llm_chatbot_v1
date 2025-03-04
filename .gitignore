@@ -38,9 +38,8 @@ env/
 *.log
 logs/
 
-# Google API credentials
-*credentials*.json
-*token*.json
+# Data files
+data/
 
 # OS specific
 .DS_Store

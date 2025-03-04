@@ -23,10 +23,10 @@ class LiteLLMSettings(BaseModel):
     max_tokens: int = Field(default=1000)
 
 
-class GoogleSheetsSettings(BaseModel):
-    """Settings for Google Sheets integration."""
-    credentials_file: str
-    spreadsheet_id: str
+class CSVSettings(BaseModel):
+    """Settings for CSV storage."""
+    data_directory: str = Field(default="data")
+    leads_file: str = Field(default="leads.csv")
 
 
 class APISettings(BaseModel):
@@ -52,79 +52,71 @@ class Settings(BaseModel):
     """Main settings class for the application."""
     openai_api_key: str
     litellm: LiteLLMSettings = Field(default_factory=LiteLLMSettings)
-    google_sheets: GoogleSheetsSettings
+    csv: CSVSettings = Field(default_factory=CSVSettings)
     api: APISettings = Field(default_factory=APISettings)
     security: SecuritySettings
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    testing: bool = Field(default=False)
 
 
 def get_settings() -> Settings:
-    """
-    Load settings from environment variables.
+    """Get the application settings from environment variables."""
+    # Load environment variables from .env file
+    load_dotenv()
     
-    Returns:
-        Settings: Application settings
-    """
-    # OpenAI settings
+    # Get OpenAI API key
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
-        raise ValueError("OPENAI_API_KEY environment variable is required")
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
     
-    # LiteLLM settings
-    litellm_model = os.getenv("LITELLM_MODEL", "gpt-4o-mini")
-    litellm_temperature = float(os.getenv("LITELLM_TEMPERATURE", "0.7"))
-    litellm_max_tokens = int(os.getenv("LITELLM_MAX_TOKENS", "1000"))
+    # Get LiteLLM settings
+    litellm_settings = LiteLLMSettings(
+        model=os.getenv("LITELLM_MODEL", "gpt-4o-mini"),
+        temperature=float(os.getenv("LITELLM_TEMPERATURE", "0.7")),
+        max_tokens=int(os.getenv("LITELLM_MAX_TOKENS", "1000"))
+    )
     
-    # Google Sheets settings
-    google_sheets_credentials_file = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE")
-    if not google_sheets_credentials_file:
-        raise ValueError("GOOGLE_SHEETS_CREDENTIALS_FILE environment variable is required")
+    # Get CSV settings
+    csv_settings = CSVSettings(
+        data_directory=os.getenv("CSV_DATA_DIRECTORY", "data"),
+        leads_file=os.getenv("CSV_LEADS_FILE", "leads.csv")
+    )
     
-    google_sheets_spreadsheet_id = os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
-    if not google_sheets_spreadsheet_id:
-        raise ValueError("GOOGLE_SHEETS_SPREADSHEET_ID environment variable is required")
+    # Get API settings
+    api_settings = APISettings(
+        host=os.getenv("API_HOST", "0.0.0.0"),
+        port=int(os.getenv("API_PORT", "8000")),
+        debug=os.getenv("DEBUG", "False").lower() == "true"
+    )
     
-    # API settings
-    api_host = os.getenv("API_HOST", "0.0.0.0")
-    api_port = int(os.getenv("API_PORT", "8000"))
-    api_debug = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
-    
-    # Security settings
+    # Get security settings
     api_key = os.getenv("API_KEY")
     if not api_key:
-        raise ValueError("API_KEY environment variable is required")
+        raise ValueError("API_KEY environment variable is not set")
     
-    cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
-    cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
+    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    security_settings = SecuritySettings(
+        api_key=api_key,
+        cors_origins=cors_origins
+    )
     
-    # Logging settings
-    log_level = os.getenv("LOG_LEVEL", "INFO")
-    log_file = os.getenv("LOG_FILE")
+    # Get logging settings
+    logging_settings = LoggingSettings(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        file=os.getenv("LOG_FILE")
+    )
+    
+    # Get testing mode
+    testing = os.getenv("TESTING", "False").lower() == "true"
     
     return Settings(
         openai_api_key=openai_api_key,
-        litellm=LiteLLMSettings(
-            model=litellm_model,
-            temperature=litellm_temperature,
-            max_tokens=litellm_max_tokens
-        ),
-        google_sheets=GoogleSheetsSettings(
-            credentials_file=google_sheets_credentials_file,
-            spreadsheet_id=google_sheets_spreadsheet_id
-        ),
-        api=APISettings(
-            host=api_host,
-            port=api_port,
-            debug=api_debug
-        ),
-        security=SecuritySettings(
-            api_key=api_key,
-            cors_origins=cors_origins
-        ),
-        logging=LoggingSettings(
-            level=log_level,
-            file=log_file
-        )
+        litellm=litellm_settings,
+        csv=csv_settings,
+        api=api_settings,
+        security=security_settings,
+        logging=logging_settings,
+        testing=testing
     )
 
 

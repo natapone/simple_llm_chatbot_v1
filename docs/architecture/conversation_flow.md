@@ -177,10 +177,44 @@ Could you share your email or phone number so we can follow up with recommendati
 - "You can reach me at [phone number]."
 
 **Transition Logic**:
-- After collecting contact information → Handoff
+- After collecting contact information → Lead Storage
 - If user is hesitant → Explain purpose and privacy policy
 
-### 8. Handoff
+### 8. Lead Storage
+
+After collecting all necessary information, the chatbot will:
+
+- Compile all collected information into a structured format
+- Store all collected information in CSV storage
+- Confirm to the user that their information has been recorded
+- Provide information about next steps (e.g., "Our team will contact you within 24 hours")
+
+#### 7.1 Data Structure
+
+The following information will be stored in the CSV file:
+
+| Field | Description |
+|-------|-------------|
+| Timestamp | When the conversation occurred |
+| Client Name | Full name of the potential client |
+| Contact Information | Email and/or phone number |
+| Project Type | Type of software project (web app, mobile app, etc.) |
+| Requirements Summary | Brief summary of the client's requirements |
+| Timeline | Expected timeline for the project |
+| Budget Range | Approximate budget range for the project |
+| Follow-up Status | Current status of the lead (New, Contacted, In Discussion, etc.) |
+| Conversation Summary | Summary of the entire conversation |
+
+#### 7.2 CSV Storage Implementation
+
+The CSV storage service will:
+
+1. Create the CSV file if it doesn't exist
+2. Append new lead information to the file
+3. Provide functions to read, update, and filter lead data
+4. Handle data validation and error cases
+
+### 9. Handoff
 
 **Purpose**: Conclude conversation and set expectations for next steps.
 
@@ -190,7 +224,7 @@ Thanks for sharing your details! I've created a request for our pre-sales team. 
 ```
 
 **Actions**:
-- Store all collected information in Google Sheets
+- Store all collected information in CSV storage
 - Generate lead record
 - End conversation
 

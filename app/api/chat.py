@@ -11,7 +11,7 @@ from pydantic import UUID4
 from app.core.logger import get_logger
 from app.models.chat import ChatRequest, ChatResponse, SessionInfo, LeadList, Lead, Message, MessageRole
 from app.services.conversation_service import conversation_service
-from app.services.sheets_service import sheets_service
+from app.services.csv_service import csv_service
 from app.api.dependencies import verify_api_key
 
 # Create router
@@ -150,8 +150,8 @@ async def get_leads(
     try:
         logger.info(f"Retrieving leads (limit={limit}, offset={offset})")
         
-        # Get leads from Google Sheets
-        leads_data = await sheets_service.get_leads(limit=limit, offset=offset)
+        # Get leads from CSV storage
+        leads_data = await csv_service.get_leads(limit=limit, offset=offset)
         
         # Create a LeadList object
         lead_list = LeadList(
@@ -188,8 +188,8 @@ async def get_lead(
     try:
         logger.info(f"Retrieving lead: {lead_id}")
         
-        # Get lead from Google Sheets
-        lead = await sheets_service.get_lead_by_id(lead_id)
+        # Get lead from CSV storage
+        lead = await csv_service.get_lead_by_id(lead_id)
         
         if not lead:
             logger.warning(f"Lead not found: {lead_id}")
@@ -227,8 +227,8 @@ async def update_lead_status(
     try:
         logger.info(f"Updating lead status: {lead_id} -> {status}")
         
-        # Update lead status in Google Sheets
-        success = await sheets_service.update_lead_status(lead_id, status)
+        # Update lead status in CSV storage
+        success = await csv_service.update_lead_status(lead_id, status)
         
         if not success:
             logger.warning(f"Lead not found for status update: {lead_id}")
@@ -300,7 +300,7 @@ async def create_test_lead(
         )
         
         # Store the lead
-        await sheets_service.store_lead(lead, "Test lead created for testing purposes")
+        await csv_service.store_lead(lead, "Test lead created for testing purposes")
         
         logger.info(f"Test lead created: {lead_id}")
         return lead

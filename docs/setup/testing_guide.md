@@ -2,14 +2,14 @@
 
 ## Overview
 
-This document provides instructions for testing the chatbot application without relying on external services like OpenAI and Google Sheets. The application includes a testing mode that uses mock implementations of these services.
+This document provides instructions for testing the chatbot application without relying on external services like OpenAI. The application includes a testing mode that uses mock implementations of these services.
 
 ## Enabling Testing Mode
 
 Testing mode is controlled by the `TESTING` environment variable. When set to `True`, the application will use mock implementations for:
 
 - LLM service (instead of calling OpenAI)
-- Google Sheets service (instead of accessing actual Google Sheets)
+- CSV service (instead of accessing the file system)
 
 To enable testing mode, set the following in your `.env` file:
 
@@ -29,11 +29,11 @@ When in testing mode, the LLM service will:
 
 This allows testing the conversation flow without consuming OpenAI API credits or requiring an internet connection.
 
-### Mock Google Sheets Service
+### Mock CSV Service
 
-The mock Google Sheets service:
+The mock CSV service:
 
-- Stores leads in memory instead of in Google Sheets
+- Stores leads in memory instead of in a CSV file
 - Provides pagination and filtering for lead retrieval
 - Supports all CRUD operations on leads
 - Simulates errors and retries
@@ -65,26 +65,44 @@ The test runner handles:
 - Properly shutting down the server after tests complete
 - Providing a summary of test results
 
-### Available Test Scripts
+### Available Test Scripts by Category
 
-The project includes several test scripts for different aspects of the application:
+The project includes several test scripts organized by category:
 
-1. **Basic API Tests** (`test_api.py`):
+#### API Tests
+
+1. **Basic API Tests** (`tests/test_api.py`):
    - Tests basic API functionality
    - Verifies chat API and leads API endpoints
    - Simple end-to-end test of the main features
 
-2. **Comprehensive Tests** (`test_comprehensive.py`):
+2. **Simple Chatbot API Test** (`tests/test_chatbot.py`):
+   - Tests the connection to the API
+   - Sends a test message and verifies the response
+   - Verifies that a session ID is created and maintained
+
+#### Functional Tests
+
+3. **Comprehensive Tests** (`tests/test_comprehensive.py`):
    - Tests all aspects of the application
    - Includes health endpoint, conversation flow, session management, lead management, and error handling
    - Provides detailed test results and summary
 
-3. **Conversation Scenario Tests** (`test_conversation_scenarios.py`):
+4. **Conversation Scenario Tests** (`tests/test_conversation_scenarios.py`):
    - Tests different conversation scenarios (website, mobile app, e-commerce, chatbot)
    - Tests handling of topic changes and minimal information
    - Verifies that leads are created correctly for each scenario
 
-4. **Performance Tests** (`test_performance.py`):
+#### Storage Tests
+
+5. **CSV Storage Tests** (`tests/test_csv_storage.py`):
+   - Tests storing a lead in the CSV file
+   - Tests retrieving a lead from the CSV file
+   - Verifies that the stored data matches the original data
+
+#### Performance Tests
+
+6. **API Performance Tests** (`tests/test_performance.py`):
    - Tests API performance under load
    - Tests API reliability over time
    - Tests endpoint availability
@@ -124,7 +142,7 @@ If you encounter issues with the tests:
 When adding new functionality to the application, consider:
 
 1. Updating the mock implementations to support the new features
-2. Adding test cases to the test script
+2. Adding test cases to the appropriate test script based on the category
 3. Creating unit tests for individual components
 4. Documenting the testing approach for the new features
 

@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-A lightweight chatbot system using LiteLLM and Langflow, designed to function as a pre-sales assistant for a software development company. The chatbot helps gather client requirements, extract key information, and store lead data in Google Sheets.
+A lightweight chatbot system using LiteLLM and Langflow, designed to function as a pre-sales assistant for a software development company. The chatbot helps gather client requirements, extract key information, and store lead data in a local CSV file.
 
 ## Technology Stack
 
 - **Backend**: FastAPI
 - **LLM Integration**: LiteLLM with GPT-4o-mini model
 - **Conversation Flow**: Langflow
-- **Data Storage**: Google Sheets API
+- **Data Storage**: Local CSV file
 - **Authentication**: API Key-based
 - **Documentation**: Markdown
 - **Python Version**: 3.11+
@@ -32,13 +32,29 @@ simple_llm_chatbot_v1/
 │   ├── models/         # Data models
 │   ├── services/       # Business logic services
 │   ├── api/           # API routes
+│   ├── static/        # Static files
+│   │   ├── chat.html  # Main chat interface
+│   │   └── test/      # Test HTML files
+│   │       ├── simple_chat.html      # Simplified chat interface for testing
+│   │       └── test_api_connection.html  # API connection test page
 │   └── utils/         # Utility functions
 ├── tests/              # Test directory
+│   ├── __init__.py                # Package initialization
+│   ├── run_all_tests.py           # Test runner script
+│   │
+│   ├── # API Tests
 │   ├── test_api.py                # Basic API tests
+│   ├── test_chatbot.py            # Simple chatbot API test
+│   │
+│   ├── # Functional Tests
 │   ├── test_comprehensive.py      # Comprehensive tests
 │   ├── test_conversation_scenarios.py # Conversation scenario tests
-│   ├── test_performance.py        # Performance tests
-│   └── run_all_tests.py           # Test runner script
+│   │
+│   ├── # Storage Tests
+│   ├── test_csv_storage.py        # CSV storage tests
+│   │
+│   └── # Performance Tests
+│       └── test_performance.py    # Performance tests
 └── project_info.txt    # This file
 ```
 
@@ -46,7 +62,7 @@ simple_llm_chatbot_v1/
 
 1. **Requirement Gathering**: Collects client project requirements through natural conversation
 2. **Information Extraction**: Extracts key details like project type, timeline, and budget
-3. **Lead Storage**: Stores lead information in Google Sheets for follow-up
+3. **Lead Storage**: Stores lead information in a local CSV file for follow-up
 4. **Conversation Management**: Maintains context throughout the conversation
 5. **Summarization**: Provides a summary of the gathered information
 6. **Testing Mode**: Supports testing without external dependencies using mock services
@@ -55,70 +71,70 @@ simple_llm_chatbot_v1/
 
 - `OPENAI_API_KEY`: OpenAI API key
 - `LITELLM_MODEL`: LLM model to use (set to gpt-4o-mini)
-- `GOOGLE_SHEETS_CREDENTIALS_FILE`: Path to Google Sheets credentials file
-- `GOOGLE_SHEETS_SPREADSHEET_ID`: ID of the Google Sheet for lead storage
+- `CSV_DATA_DIRECTORY`: Directory for CSV data storage (default: "data")
+- `CSV_LEADS_FILE`: Filename for leads CSV file (default: "leads.csv")
 - `API_HOST`: Host for the FastAPI server
 - `API_PORT`: Port for the FastAPI server
 - `TESTING`: When set to "True", enables testing mode with mock services
 
 ## Changelog
 
-### [Unreleased]
-- Initial project setup
-- Documentation creation
-- Updated to Python 3.11+
-- Updated to latest OpenAI API version
-- Added testing mode with mock implementations:
-  - Mock LLM service for testing without OpenAI API
-  - Mock Google Sheets service for testing without actual sheets
-  - Test script to verify API functionality
-  - Testing documentation
-- Added comprehensive test suite:
-  - Basic API tests
-  - Comprehensive tests for all aspects of the application
-  - Conversation scenario tests for different client requests
-  - Performance and reliability tests
-  - Test runner script for running all tests
-- Improved test runner script:
-  - Automatic server startup and shutdown
-  - Better error handling and reporting
-  - Support for running specific tests
-  - Improved test reliability with proper server initialization
-  - Fixed issues with test scenarios and performance testing
+### 2024-03-04
+- Cleaned up project structure:
+  - Removed duplicate test files from root directory
+  - Moved HTML test files to app/static/test directory
+  - Deleted duplicate chat.html from root directory
+  - Updated project structure documentation
 
-### [0.1.0] - YYYY-MM-DD
-- Created project structure
-- Added documentation:
-  - System architecture design
-  - Installation guide
-  - API reference
-- Created project_info.txt
+- Organized test files by category:
+  - Moved all test files to the tests directory
+  - Categorized tests into API Tests, Functional Tests, Storage Tests, and Performance Tests
+  - Updated documentation to reflect the new test organization
+  - Updated the test runner to include all test files
+
+- Replaced Google Sheets integration with local CSV storage:
+  - Added CSV service for storing lead data
+  - Updated configuration to support CSV storage
+  - Removed Google Sheets dependencies
+  - Updated documentation to reflect CSV storage
+  - Removed all Google Sheets related files and code
+  - Added test script for CSV storage
+  - Added testing mode with mock implementations for testing without OpenAI API and file system access
+
+### 2024-03-02
+- Initial project setup:
+  - Created basic project structure
+  - Implemented core conversation service
+  - Added LiteLLM integration
+  - Set up FastAPI backend
+  - Added CSV storage for lead data
+  - Created documentation
+  - Added testing framework
+  - Implemented mock services for testing
 
 ## Development Roadmap
 
-### Phase 1: Foundation Setup
+### Completed
 - [x] Project structure setup
-- [x] Environment configuration
-- [x] Basic FastAPI server
-- [x] LiteLLM integration with GPT-4o-mini
-- [x] Logging system
+- [x] Core conversation service
+- [x] LiteLLM integration
+- [x] FastAPI backend
+- [x] CSV storage for lead data
+- [x] Documentation
+- [x] Testing framework
+- [x] Mock services for testing
 
-### Phase 2: Core Features
-- [x] Conversation flow implementation in Langflow
-- [x] Response generation system
-- [x] Basic data validation
+### In Progress
+- [ ] Improved error handling
+- [ ] Enhanced conversation flow
+- [ ] Better lead data visualization
 
-### Phase 3: Integration & Storage
-- [x] Google Sheets API integration
-- [x] Lead data management
-- [x] Error recovery mechanisms
-
-### Phase 4: Testing & Deployment
-- [x] Unit and integration testing
-- [x] Comprehensive test suite
-- [x] Performance testing
-- [x] Documentation completion
-- [ ] Deployment preparation
+### Planned
+- [ ] Admin dashboard for lead management
+- [ ] Email notification system
+- [ ] Integration with CRM systems
+- [ ] Multi-language support
+- [ ] Voice interface
 
 ## Contact
 
